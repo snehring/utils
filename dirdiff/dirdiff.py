@@ -78,14 +78,17 @@ def main():
         dir1_files = manager.dict()
         dir2_files = manager.dict()
         thread_pool = Pool(args.threads)
+        original_dir = os.getcwd()
         if args.recursive:
-            for path, dirs, files in os.walk(args.dir1):
+            os.chdir(args.dir1)
+            for path, dirs, files in os.walk("."):
                 for f in files:
                     thread_pool.apply_async(hash_directory_file, (dir1_files, path, f))
                 for d in dirs:
                     # we don't actually have to hash them so we'll lie
                     dir1_files[os.path.join(path,d)] = b"0xdeadbeefface"
-            for path, dirs, files in os.walk(args.dir2):
+            os.chdir(args.dir2)
+            for path, dirs, files in os.walk("."):
                 for f in files:
                     thread_pool.apply_async(hash_directory_file, (dir2_files, path, f))
                 for d in dirs:
@@ -93,26 +96,36 @@ def main():
                     dir2_files[os.path.join(path,d)] = b"0xdeadbeefface"
             thread_pool.close()
             thread_pool.join()
+            os.chdir(original_dir)
         else:
-            for f in os.listdir(args.dir1):
-                if os.path.isdir(os.path.join(args.dir1,f)):
-                    dir1_files[os.path.join(args.dir1,f)] = b"0xdeadbeefface"
+            original_dir = os.getcwd()
+            os.chdir(args.dir1)
+            for f in os.listdir("."):
+                if os.path.isdir(f):
+                    dir1_files[f] = b"0xdeadbeefface"
                     continue
-                thread_pool.apply_async(hash_directory_file, (dir1_files, args.dir1, f))
-            for f in os.listdir(args.dir2):
-                if os.path.isdir(os.path.join(args.dir2,f)):
-                    dir2_files[os.path.join(args.dir2,f)] = b"0xdeadbeefface"
+                thread_pool.apply_async(hash_directory_file, (dir1_files, ".", f))
+            os.chdir(args.dir2)
+            for f in os.listdir("."):
+                if os.path.isdir(f):
+                    dir2_files[f] = b"0xdeadbeefface"
                     continue
-                thread_pool.apply_async(hash_directory_file, (dir2_files, args.dir2, f))
+                thread_pool.apply_async(hash_directory_file, (dir2_files, ".", f))
         thread_pool.close()
         thread_pool.join()
+        os.chdir(original_dir)
         wrong_files = compare_directories(dir1_files, dir2_files, args.threads)
+        extra_files = compare_directories(dir2_files, dir1_files, args.threads)
         if wrong_files:
-            print("The following files were present in "+args.dir1+" and found to be missing in "+args.dir2+" or their hashes differ:")
+            print("The following files were present in "+args.dir1+" but were not found or were different in "+args.dir2+":")
             for f in wrong_files:
                 print(f)
-        else:
-            print("All good. Apparently")
+        if extra_files:
+            print("The following files were present in "+args.dir2+" , but were not found or were different in "+args.dir1+":")
+            for f in extra_files:
+                print(f)
+        if not wrong_files and not extra_files:
+            print("All good. Apparently.")
     
 if sys.version_info[0] <= 3 and sys.version_info[1] < 6:
     raise Exception("Requires at least python 3.6")
