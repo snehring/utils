@@ -1,2 +1,2 @@
 # utils
-misc utilities
+Misc utilities for various things.
