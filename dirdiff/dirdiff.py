@@ -82,15 +82,27 @@ def main():
             for path, dirs, files in os.walk(args.dir1):
                 for f in files:
                     thread_pool.apply_async(hash_directory_file, (dir1_files, path, f))
+                for d in dirs:
+                    # we don't actually have to hash them so we'll lie
+                    dir1_files[os.path.join(path,d)] = b"0xdeadbeefface"
             for path, dirs, files in os.walk(args.dir2):
                 for f in files:
                     thread_pool.apply_async(hash_directory_file, (dir2_files, path, f))
+                for d in dirs:
+                    # still don't care
+                    dir2_files[os.path.join(path,d)] = b"0xdeadbeefface"
             thread_pool.close()
             thread_pool.join()
         else:
             for f in os.listdir(args.dir1):
+                if os.path.isdir(os.path.join(args.dir1,f)):
+                    dir1_files[os.path.join(args.dir1,f)] = b"0xdeadbeefface"
+                    continue
                 thread_pool.apply_async(hash_directory_file, (dir1_files, args.dir1, f))
             for f in os.listdir(args.dir2):
+                if os.path.isdir(os.path.join(args.dir2,f)):
+                    dir2_files[os.path.join(args.dir2,f)] = b"0xdeadbeefface"
+                    continue
                 thread_pool.apply_async(hash_directory_file, (dir2_files, args.dir2, f))
         thread_pool.close()
         thread_pool.join()
